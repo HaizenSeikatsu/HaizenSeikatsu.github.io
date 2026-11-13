@@ -95,18 +95,19 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}.welcome-progress span{animation:none;width:100%}}
 
 /* ===== Contact FX: floating emoji on hover ===== */
-.fx-emoji{position:fixed;z-index:9999;pointer-events:none;font-size:20px;line-height:1;opacity:0;transform:translate(-50%,-50%);font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif;animation:emojiFloat 1.25s cubic-bezier(.25,.7,.25,1) forwards;filter:drop-shadow(0 5px 9px #17231b38)}
+.fx-emoji{position:fixed;z-index:9999;pointer-events:none;font-size:26px;line-height:1;opacity:0;will-change:transform,opacity;transform:translate(-50%,-100%);font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif;animation:emojiFloat 1.5s cubic-bezier(.2,.72,.28,1) forwards;user-select:none;-webkit-user-select:none}
 @keyframes emojiFloat{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(.35) translateY(12px)}
-  16%{opacity:1;transform:translate(-50%,-50%) scale(1.18) translateY(0)}
-  100%{opacity:0;transform:translate(calc(-50% + var(--drift,0px)),-50%) scale(.8) translateY(-78px)}
+  0%{opacity:0;transform:translate(-50%,-100%) translateY(10px) scale(.88) rotate(-6deg)}
+  14%{opacity:1;transform:translate(-50%,-100%) translateY(0) scale(1) rotate(0deg)}
+  60%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--drift,0px)),-100%) translateY(-76px) scale(.94) rotate(var(--rot,5deg))}
 }
 a.fx-mail,a.fx-phone{transition:color .2s}
 a.fx-mail:hover{color:var(--green)}
 a.fx-phone:hover{color:var(--green)}
 /* Reduced-motion users get a static badge instead of the float-away (its end
    state is opacity:0, so without this the emoji would be invisible). */
-@media(prefers-reduced-motion:reduce){.fx-emoji{animation:none!important;opacity:1;transform:translate(-50%,-50%)}}
+@media(prefers-reduced-motion:reduce){.fx-emoji{animation:none!important;opacity:1;transform:translate(-50%,-100%)}}
 
 </style>
 </head>
@@ -324,7 +325,7 @@ const ContactFX = (() => {
     });
   };
 
-  // Floating emoji that rises from the hovered link.
+  // Floating emoji that rises from just above the hovered link (never over the text).
   const spawn = (el, ch) => {
     const r = el.getBoundingClientRect();
     if (!r.width && !r.height) return;
@@ -332,13 +333,17 @@ const ContactFX = (() => {
     s.className = 'fx-emoji';
     s.setAttribute('aria-hidden', 'true');
     s.textContent = ch;
-    s.style.left = (r.left + r.width * (0.28 + Math.random() * 0.44)) + 'px';
-    s.style.top = (r.top + r.height * 0.55) + 'px';
+    // Anchor above the element's top edge, whole pixels only: fractional
+    // coordinates make the glyph rasterize blurry on HiDPI displays.
+    const size = Math.round(22 + Math.random() * 8);
+    s.style.fontSize = size + 'px';
+    s.style.left = Math.round(r.left + r.width * (0.3 + Math.random() * 0.4)) + 'px';
+    s.style.top = Math.round(r.top - size - 4) + 'px';
     s.style.setProperty('--drift', ((Math.random() * 44 - 22) | 0) + 'px');
-    s.style.fontSize = (16 + Math.random() * 9).toFixed(1) + 'px';
+    s.style.setProperty('--rot', ((Math.random() * 14 - 7) | 0) + 'deg');
     document.body.appendChild(s);
     s.addEventListener('animationend', () => s.remove());
-    setTimeout(() => s.remove(), 2000);   // safety net
+    setTimeout(() => s.remove(), 2200);   // safety net
   };
 
   const wire = (sel, sound, emoji) => {
