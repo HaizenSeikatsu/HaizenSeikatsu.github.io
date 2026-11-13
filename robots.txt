@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://haizenseikatsu.github.io/sitemap.xml
+Sitemap: https://charlessurellgalsim.github.io/sitemap.xml
