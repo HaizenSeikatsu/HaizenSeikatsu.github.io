@@ -94,20 +94,40 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
 @media(max-width:760px){.welcome-orbit.orbit-a{width:92vw}.welcome-orbit.orbit-b{width:70vw}.ambient-one{top:900px}.contact:after{right:-35%;}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}.welcome-progress span{animation:none;width:100%}}
 
-/* ===== Contact FX: floating emoji on hover ===== */
-.fx-emoji{position:fixed;z-index:9999;pointer-events:none;font-size:26px;line-height:1;opacity:0;will-change:transform,opacity;transform:translate(-50%,-100%);font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif;animation:emojiFloat 1.5s cubic-bezier(.2,.72,.28,1) forwards;user-select:none;-webkit-user-select:none}
-@keyframes emojiFloat{
-  0%{opacity:0;transform:translate(-50%,-100%) translateY(10px) scale(.88) rotate(-6deg)}
-  14%{opacity:1;transform:translate(-50%,-100%) translateY(0) scale(1) rotate(0deg)}
-  60%{opacity:1}
-  100%{opacity:0;transform:translate(calc(-50% + var(--drift,0px)),-100%) translateY(-76px) scale(.94) rotate(var(--rot,5deg))}
+/* ===== Contact FX: origin ripple + floating emoji stream on hover ===== */
+.fx-ripple{position:fixed;z-index:9998;pointer-events:none;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--rc,#426b54);opacity:0;will-change:transform,opacity;animation:fxRipple .85s cubic-bezier(.2,.75,.3,1) forwards}
+@keyframes fxRipple{
+  0%{opacity:.55;transform:translate(-50%,-50%) scale(.3)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(7.5)}
+}
+.fx-emoji{position:fixed;z-index:9999;pointer-events:none;will-change:transform;transform:translate3d(calc(-50% + 0px),calc(-100% + 12px),0);animation:fxRise var(--dur,1.8s) cubic-bezier(.18,.62,.32,1) forwards;user-select:none;-webkit-user-select:none}
+.fx-emoji i{display:block;font-style:normal;line-height:1;opacity:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif;animation:fxPop var(--dur,1.8s) forwards}
+/* S-curve rise: sways left/right while drifting upward, never a straight line. */
+@keyframes fxRise{
+  0%{transform:translate3d(calc(-50% + 0px),calc(-100% + 12px),0)}
+  25%{transform:translate3d(calc(-50% + var(--sway,10px)),calc(-100% - 28px),0)}
+  50%{transform:translate3d(calc(-50% - var(--sway,10px)),calc(-100% - 72px),0)}
+  75%{transform:translate3d(calc(-50% + var(--sway,7px)),calc(-100% - 118px),0)}
+  100%{transform:translate3d(calc(-50% + var(--drift,0px)),calc(-100% - 162px),0)}
+}
+/* Elastic pop-in with overshoot, then a settle, then a late fade. */
+@keyframes fxPop{
+  0%{opacity:0;transform:scale(.2) rotate(var(--r0,-14deg));animation-timing-function:cubic-bezier(.34,1.68,.5,1)}
+  16%{opacity:1;transform:scale(1.16) rotate(3deg);animation-timing-function:ease-out}
+  32%{transform:scale(.96) rotate(0deg)}
+  70%{opacity:1;transform:scale(1) rotate(var(--r1,5deg));animation-timing-function:ease-in}
+  100%{opacity:0;transform:scale(.86) rotate(var(--r1,5deg))}
 }
 a.fx-mail,a.fx-phone{transition:color .2s}
 a.fx-mail:hover{color:var(--green)}
 a.fx-phone:hover{color:var(--green)}
 /* Reduced-motion users get a static badge instead of the float-away (its end
    state is opacity:0, so without this the emoji would be invisible). */
-@media(prefers-reduced-motion:reduce){.fx-emoji{animation:none!important;opacity:1;transform:translate(-50%,-100%)}}
+@media(prefers-reduced-motion:reduce){
+  .fx-emoji{animation:none!important;opacity:1;transform:translate(-50%,-100%)!important}
+  .fx-emoji i{animation:none!important;opacity:1!important;transform:none!important}
+  .fx-ripple{display:none!important}
+}
 
 </style>
 </head>
@@ -325,41 +345,73 @@ const ContactFX = (() => {
     });
   };
 
+  // Expanding ring at the anchor point — the "tap" that starts the stream.
+  const ripple = (el) => {
+    const r = el.getBoundingClientRect();
+    if (!r.width && !r.height) return;
+    const d = document.createElement('span');
+    d.className = 'fx-ripple';
+    d.setAttribute('aria-hidden', 'true');
+    d.style.left = Math.round(r.left + r.width / 2) + 'px';
+    d.style.top = Math.round(r.top - 6) + 'px';
+    d.style.setProperty('--rc', el.closest('.contact') ? '#eaf0eb' : '#426b54');
+    document.body.appendChild(d);
+    d.addEventListener('animationend', () => d.remove());
+    setTimeout(() => d.remove(), 1200);
+  };
+
   // Floating emoji that rises from just above the hovered link (never over the text).
   const spawn = (el, ch) => {
+    if (document.querySelectorAll('.fx-emoji').length > 26) return;   // cap concurrent
     const r = el.getBoundingClientRect();
     if (!r.width && !r.height) return;
     const s = document.createElement('span');
     s.className = 'fx-emoji';
     s.setAttribute('aria-hidden', 'true');
-    s.textContent = ch;
+    const g = document.createElement('i');   // inner glyph: pop/rotate/opacity on its own easing
+    g.textContent = ch;
+    s.appendChild(g);
     // Anchor above the element's top edge, whole pixels only: fractional
     // coordinates make the glyph rasterize blurry on HiDPI displays.
-    const size = Math.round(22 + Math.random() * 8);
-    s.style.fontSize = size + 'px';
-    s.style.left = Math.round(r.left + r.width * (0.3 + Math.random() * 0.4)) + 'px';
-    s.style.top = Math.round(r.top - size - 4) + 'px';
-    s.style.setProperty('--drift', ((Math.random() * 44 - 22) | 0) + 'px');
-    s.style.setProperty('--rot', ((Math.random() * 14 - 7) | 0) + 'deg');
+    g.style.fontSize = Math.round(19 + Math.random() * 15) + 'px';
+    s.style.left = Math.round(r.left + r.width * (0.22 + Math.random() * 0.56)) + 'px';
+    s.style.top = Math.round(r.top - 4) + 'px';
+    s.style.setProperty('--sway', (((Math.random() * 16 + 7) | 0) * (Math.random() < 0.5 ? -1 : 1)) + 'px');
+    s.style.setProperty('--drift', ((Math.random() * 56 - 28) | 0) + 'px');
+    s.style.setProperty('--r0', ((Math.random() * 26 - 13) | 0) + 'deg');
+    s.style.setProperty('--r1', ((Math.random() * 32 - 16) | 0) + 'deg');
+    s.style.setProperty('--dur', (1.6 + Math.random() * 0.8).toFixed(2) + 's');
     document.body.appendChild(s);
     s.addEventListener('animationend', () => s.remove());
-    setTimeout(() => s.remove(), 2200);   // safety net
+    setTimeout(() => s.remove(), 3000);   // safety net
   };
 
   const wire = (sel, sound, emoji) => {
     document.querySelectorAll(sel).forEach(el => {
-      let last = 0;
+      let last = 0, timer = null, burst = 0;
+      const stop = () => { clearInterval(timer); timer = null; };
       el.addEventListener('pointerenter', () => {
         const n = Date.now();
-        if (n - last < 600) return;       // debounce rapid re-hover
-        last = n;
+        if (n - last < 700) return;       // debounce rapid re-hover
+        last = n; burst = 0;
+        ripple(el);
         sound();
-        spawn(el, emoji);
-        setTimeout(() => spawn(el, emoji), 170);
+        // staggered burst, then a slow trickle while the pointer stays
+        [0, 95, 190, 285, 385].forEach(d => setTimeout(() => {
+          if (burst >= 18) return;
+          spawn(el, emoji); burst++;
+        }, d));
+        stop();
+        timer = setInterval(() => {
+          if (burst >= 18) { stop(); return; }
+          spawn(el, emoji); burst++;
+        }, 660);
       });
+      el.addEventListener('pointerleave', stop);
+      el.addEventListener('blur', stop);
     });
   };
-  wire('a.fx-mail, .btn.fx-mail', office, '✉️');
+  wire('a.fx-mail', office, '✉️');
   wire('a.fx-phone', dial, '📞');
 
   return {office, dial};
