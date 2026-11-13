@@ -94,6 +94,20 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
 @media(max-width:760px){.welcome-orbit.orbit-a{width:92vw}.welcome-orbit.orbit-b{width:70vw}.ambient-one{top:900px}.contact:after{right:-35%;}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}.welcome-progress span{animation:none;width:100%}}
 
+/* ===== Contact FX: floating emoji on hover ===== */
+.fx-emoji{position:fixed;z-index:9999;pointer-events:none;font-size:20px;line-height:1;opacity:0;transform:translate(-50%,-50%);font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif;animation:emojiFloat 1.25s cubic-bezier(.25,.7,.25,1) forwards;filter:drop-shadow(0 5px 9px #17231b38)}
+@keyframes emojiFloat{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.35) translateY(12px)}
+  16%{opacity:1;transform:translate(-50%,-50%) scale(1.18) translateY(0)}
+  100%{opacity:0;transform:translate(calc(-50% + var(--drift,0px)),-50%) scale(.8) translateY(-78px)}
+}
+a.fx-mail,a.fx-phone{transition:color .2s}
+a.fx-mail:hover{color:var(--green)}
+a.fx-phone:hover{color:var(--green)}
+/* Reduced-motion users get a static badge instead of the float-away (its end
+   state is opacity:0, so without this the emoji would be invisible). */
+@media(prefers-reduced-motion:reduce){.fx-emoji{animation:none!important;opacity:1;transform:translate(-50%,-50%)}}
+
 </style>
 </head>
 <body>
@@ -123,7 +137,7 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
       <div class="kicker">Personal portfolio · Information Technology</div>
       <h1>Charles S.<br><em>Galsim.</em></h1>
       <p class="lead"><strong>IT Specialist Assistant</strong> with hands-on internship experience in computer and network troubleshooting, hardware replacement, application installation, and records management. Dedicated to reliable technical support, continuous learning, and helping teams work efficiently.</p>
-      <div class="actions"><a class="btn primary" href="#experience">View experience ↗</a><a class="btn" href="mailto:charlessurellgalsim@gmail.com">Get in touch</a></div>
+      <div class="actions"><a class="btn primary" href="#experience">View experience ↗</a><a class="btn fx-mail" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=charlessurellgalsim%40gmail.com&amp;su=Professional%20Inquiry" target="_blank" rel="noopener">Get in touch</a></div>
     </div>
     <div class="portrait-wrap"><img class="portrait" src="charles-galsim.jpg" alt="Portrait of Charles S. Galsim"><div class="photo-note">IT Support · Technical Services</div></div>
   </div>
@@ -139,8 +153,8 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
       <div class="facts">
         <div class="fact"><small>Location</small><strong>Bayambang, Pangasinan, Philippines</strong></div>
         <div class="fact"><small>Professional focus</small><strong>IT Support & Troubleshooting</strong></div>
-        <div class="fact"><small>Email</small><strong><a href="mailto:charlessurellgalsim@gmail.com">charlessurellgalsim@gmail.com</a></strong></div>
-        <div class="fact"><small>Mobile</small><strong><a href="tel:+639995972527">0999 597 2527</a></strong></div>
+        <div class="fact"><small>Email</small><strong><a class="fx-mail" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=charlessurellgalsim%40gmail.com&amp;su=Professional%20Inquiry" target="_blank" rel="noopener">charlessurellgalsim@gmail.com</a></strong></div>
+        <div class="fact"><small>Mobile</small><strong><a class="fx-phone" href="tel:+639995972527">0999 597 2527</a></strong></div>
       </div>
     </div>
   </div>
@@ -183,7 +197,7 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
   </div>
 </div></section>
 <section id="contact"><div class="wrap">
-  <div class="contact"><div><div class="kicker">06 / Contact</div><h2>Let's connect.</h2><p>For IT support opportunities, collaboration, or professional inquiries, feel free to reach out.</p><p><a href="mailto:charlessurellgalsim@gmail.com">charlessurellgalsim@gmail.com</a> &nbsp;·&nbsp; <a href="tel:+639995972527">0999 597 2527</a></p></div><a class="btn" href="mailto:charlessurellgalsim@gmail.com?subject=Professional%20Inquiry">Email Charles ↗</a></div>
+  <div class="contact"><div><div class="kicker">06 / Contact</div><h2>Let's connect.</h2><p>For IT support opportunities, collaboration, or professional inquiries, feel free to reach out.</p><p><a class="fx-mail" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=charlessurellgalsim%40gmail.com&amp;su=Professional%20Inquiry" target="_blank" rel="noopener">charlessurellgalsim@gmail.com</a> &nbsp;·&nbsp; <a class="fx-phone" href="tel:+639995972527">0999 597 2527</a></p></div><a class="btn fx-mail" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=charlessurellgalsim%40gmail.com&amp;su=Professional%20Inquiry" target="_blank" rel="noopener">Email Charles ↗</a></div>
 </div></section>
 </main>
 <footer class="wrap"><span>© <span id="year"></span> Charles S. Galsim</span><a href="#home">Back to top ↑</a></footer>
@@ -226,6 +240,125 @@ const siteHeader = document.querySelector('header');
 window.addEventListener('scroll', () => {
   siteHeader.classList.toggle('scrolled', window.scrollY > 12);
 }, {passive:true});
+
+/* ===== Contact FX =====
+   Office ambience + DTMF dial tones are synthesized with the Web Audio API
+   (no external audio files, nothing to download, royalty-free by construction).
+   Browsers block audio until a real user gesture, so we unlock on interaction. */
+const ContactFX = (() => {
+  let ctx = null;
+  const getCtx = () => {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { return null; }
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  };
+  const unlock = () => { const c = getCtx(); if (c && c.state === 'suspended') c.resume().catch(() => {}); };
+  ['pointerdown', 'mousedown', 'keydown', 'touchstart', 'click'].forEach(ev =>
+    window.addEventListener(ev, unlock, {passive:true}));
+
+  // "Work office" room tone: soft broadband murmur + a few keyboard clacks.
+  const office = () => {
+    const c = getCtx(); if (!c || c.state !== 'running') return;
+    const t0 = c.currentTime;
+
+    const len = Math.floor(c.sampleRate * 0.8);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(); src.buffer = buf;
+
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 780; bp.Q.value = 0.6;
+
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.045, t0 + 0.07);
+    g.gain.linearRampToValueAtTime(0.022, t0 + 0.5);
+    g.gain.linearRampToValueAtTime(0.0001, t0 + 0.8);
+
+    src.connect(bp); bp.connect(g); g.connect(c.destination);
+    src.start(t0); src.stop(t0 + 0.85);
+
+    // keyboard clacks
+    [0.04, 0.16, 0.31, 0.47, 0.62].forEach(off => {
+      const n = Math.floor(c.sampleRate * 0.03);
+      const b = c.createBuffer(1, n, c.sampleRate);
+      const dd = b.getChannelData(0);
+      for (let i = 0; i < n; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const s = c.createBufferSource(); s.buffer = b;
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200;
+      const gg = c.createGain();
+      const t = t0 + off;
+      gg.gain.setValueAtTime(0.06, t);
+      gg.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+      s.connect(hp); hp.connect(gg); gg.connect(c.destination);
+      s.start(t); s.stop(t + 0.05);
+    });
+  };
+
+  // Real DTMF dual-tone pairs, digit by digit, as a phone dialler would send them.
+  const DTMF = {1:[697,1209],2:[697,1336],3:[697,1477],4:[770,1209],5:[770,1336],
+                6:[770,1477],7:[852,1209],8:[852,1336],9:[852,1477],0:[941,1336],
+                '*':[941,1209],'#':[941,1477]};
+  const dial = () => {
+    const c = getCtx(); if (!c || c.state !== 'running') return;
+    const digits = '639995972527';   // +63 999 597 2527
+    const t0 = c.currentTime + 0.02;
+    const toneLen = 0.06, gap = 0.018;
+    digits.split('').forEach((ch, i) => {
+      const pair = DTMF[ch]; if (!pair) return;
+      const t = t0 + i * (toneLen + gap);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.07, t + 0.006);
+      g.gain.setValueAtTime(0.07, t + toneLen - 0.01);
+      g.gain.linearRampToValueAtTime(0.0001, t + toneLen);
+      g.connect(c.destination);
+      pair.forEach(f => {
+        const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+        o.connect(g); o.start(t); o.stop(t + toneLen + 0.01);
+      });
+    });
+  };
+
+  // Floating emoji that rises from the hovered link.
+  const spawn = (el, ch) => {
+    const r = el.getBoundingClientRect();
+    if (!r.width && !r.height) return;
+    const s = document.createElement('span');
+    s.className = 'fx-emoji';
+    s.setAttribute('aria-hidden', 'true');
+    s.textContent = ch;
+    s.style.left = (r.left + r.width * (0.28 + Math.random() * 0.44)) + 'px';
+    s.style.top = (r.top + r.height * 0.55) + 'px';
+    s.style.setProperty('--drift', ((Math.random() * 44 - 22) | 0) + 'px');
+    s.style.fontSize = (16 + Math.random() * 9).toFixed(1) + 'px';
+    document.body.appendChild(s);
+    s.addEventListener('animationend', () => s.remove());
+    setTimeout(() => s.remove(), 2000);   // safety net
+  };
+
+  const wire = (sel, sound, emoji) => {
+    document.querySelectorAll(sel).forEach(el => {
+      let last = 0;
+      el.addEventListener('pointerenter', () => {
+        const n = Date.now();
+        if (n - last < 600) return;       // debounce rapid re-hover
+        last = n;
+        sound();
+        spawn(el, emoji);
+        setTimeout(() => spawn(el, emoji), 170);
+      });
+    });
+  };
+  wire('a.fx-mail, .btn.fx-mail', office, '✉️');
+  wire('a.fx-phone', dial, '📞');
+
+  return {office, dial};
+})();
 
 </script>
 </body></html>
