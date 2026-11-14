@@ -122,6 +122,18 @@ footer a{transition:color .2s,transform .2s}footer a:hover{color:var(--green);tr
 a.fx-mail,a.fx-phone{transition:color .2s}
 a.fx-mail:hover{color:var(--green)}
 a.fx-phone:hover{color:var(--green)}
+/* Cursor hint that sits just below the pointer on hover so visitors know they
+   can copy the link instead of opening it. position:absolute + document
+   coordinates (set by JS) so it scrolls with the page like the rest of the FX.
+   pointer-events:none keeps right-click / long-press on the link itself. */
+.fx-hint{position:absolute;z-index:10000;left:-9999px;top:-9999px;pointer-events:none;white-space:nowrap;
+  background:rgba(13,20,16,.96);color:#e6eee8;border:1px solid rgba(234,240,235,.16);
+  font-size:11px;font-weight:600;letter-spacing:.01em;line-height:1.45;
+  padding:8px 12px;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.3);
+  opacity:0;transform:translate(-50%,-6px);will-change:transform,opacity;
+  transition:opacity .2s ease,transform .2s cubic-bezier(.2,.75,.25,1);
+  user-select:none;-webkit-user-select:none}
+.fx-hint.on{opacity:1;transform:translate(-50%,0)}
 /* Reduced-motion users get a static badge instead of the float-away (its end
    state is opacity:0, so without this the emoji would be invisible). */
 @media(prefers-reduced-motion:reduce){
@@ -392,10 +404,37 @@ const ContactFX = (() => {
     setTimeout(() => s.remove(), 2600);   // safety net
   };
 
+  // Cursor hint: sits just below the pointer so visitors know they can copy
+  // the link instead of opening it (right-click on desktop, long-press on
+  // touch). Document coordinates so it scrolls with the page like the FX.
+  const hint = document.createElement('div');
+  hint.className = 'fx-hint';
+  hint.setAttribute('aria-hidden', 'true');
+  hint.textContent = 'Right-click or hold touch to copy the link';
+  document.body.appendChild(hint);
+  let hintOn = false, hx = 0, hy = 0, hintW = 0;
+  const hintAt = (cx, cy) => {
+    hx = cx; hy = cy;
+    const w = hintW || (hintW = hint.offsetWidth);            // measured once, not per move
+    const min = w / 2 + 10;                                   // keep it on-screen
+    const max = Math.max(min, document.documentElement.clientWidth - w / 2 - 10);
+    const x = Math.min(Math.max(cx + window.scrollX, min), max);
+    hint.style.left = Math.round(x) + 'px';
+    hint.style.top = Math.round(cy + window.scrollY + 22) + 'px';   // just below cursor
+  };
+  const hintShow = (e) => {
+    if (!hintOn) { hintW = hint.offsetWidth; hintOn = true; hint.classList.add('on'); }
+    hintAt(e.clientX, e.clientY);
+  };
+  const hintHide = () => { if (hintOn) { hintOn = false; hint.classList.remove('on'); } };
+  window.addEventListener('scroll', () => { if (hintOn) hintAt(hx, hy); }, { passive: true });
+  window.addEventListener('resize', () => { hintW = 0; if (hintOn) hintAt(hx, hy); }, { passive: true });
+
   const wire = (sel, sound, emoji) => {
     document.querySelectorAll(sel).forEach(el => {
       let last = 0;
-      el.addEventListener('pointerenter', () => {
+      el.addEventListener('pointerenter', (e) => {
+        hintShow(e);
         const n = Date.now();
         if (n - last < 900) return;       // debounce rapid re-hover
         last = n;
@@ -404,6 +443,9 @@ const ContactFX = (() => {
         // a small, tidy burst of exactly four — no trickle, no flooding
         [0, 110, 220, 330].forEach(d => setTimeout(() => spawn(el, emoji), d));
       });
+      el.addEventListener('pointermove', (e) => hintAt(e.clientX, e.clientY));
+      el.addEventListener('pointerleave', hintHide);
+      el.addEventListener('blur', hintHide);
     });
   };
   wire('a.fx-mail', office, '✉️');
